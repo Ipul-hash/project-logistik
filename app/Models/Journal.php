@@ -10,8 +10,22 @@ class Journal extends Model
     use HasFactory;
 
     protected $fillable = [
-        'transaction_ref', 'account_id', 'debit', 'credit', 'description'
+        'cash_flow_id',
+        'transaction_ref',
+        'account_id',
+        'debit',
+        'credit',
+        'description',
+        'created_at'
     ];
 
-    public function account() { return $this->belongsTo(Account::class); }
+    public function cashflow()
+    {
+        return $this->belongsTo(CashFlow::class, 'cash_flow_id');
+    }
+
+    public function account()
+    {
+        return $this->belongsTo(Account::class);
+    }
 }

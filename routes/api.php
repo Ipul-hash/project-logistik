@@ -18,6 +18,7 @@ Route::get('/cash-flow/{id}', [CashflowController::class, 'show']);
 Route::put('/cash-flow/{id}', [CashflowController::class, 'update']);
 Route::delete('/cash-flow/{id}', [CashflowController::class, 'destroy']);
 
+
 /**
  * ini Route API buat laporan keuangan
  */

@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory;
+    use HasFactory, HasRoles;
 
     protected $fillable = [
         'role_id', 'name', 'email', 'password', 'phone', 'status'
@@ -15,9 +16,11 @@ class User extends Authenticatable
 
     protected $hidden = ['password'];
 
+    protected $guard_name = 'web'; // penting buat Spatie
+
     public function role()
     {
-        return $this->belongsTo(Role::class);
+        return $this->belongsTo(CustomRole::class, 'role_id');
     }
 
     public function sales()

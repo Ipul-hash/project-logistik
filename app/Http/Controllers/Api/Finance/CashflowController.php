@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Finance;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\CashFlow;
+use App\Models\Journal;
 use Illuminate\Support\Facades\Validator;
 
 class CashflowController extends Controller
@@ -12,19 +13,22 @@ class CashflowController extends Controller
     /**
      * Display all cash flows.
      */
-    public function index()
-    {
-        $data = CashFlow::with(['account', 'creator', 'verifier'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Data kas masuk & keluar berhasil ditampilkan',
-            'count'   => $data->count(),
-            'data'    => $data,
-        ], 200);
+    public function index(Request $request)
+{
+    $query = CashFlow::with(['account', 'creator', 'verifier'])->orderBy('created_at', 'desc');
+        if ($request->has('status')) {
+        $query->where('status', $request->status);
     }
+
+    $data = $query->get();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Data kas masuk & keluar berhasil ditampilkan',
+        'count'   => $data->count(),
+        'data'    => $data,
+    ]);
+}
 
     /**
      * Store a newly created cash flow.
@@ -90,35 +94,45 @@ class CashflowController extends Controller
      * Update cash flow (approval/validation).
      */
     public function update(Request $request, $id)
-    {
-        $data = CashFlow::find($id);
-
-        if (!$data) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data tidak ditemukan',
-            ], 404);
-        }
-
-        $validated = $request->validate([
-            'status' => 'in:pending,approved,rejected',
-            'description' => 'nullable|string',
-        ]);
-
-        $data->update([
-            'status' => $request->status ?? $data->status,
-            'description' => $request->description ?? $data->description,
-            'verified_by' => 3, // sementara hardcode (nanti pakai auth()->id())
-            'verified_at' => now(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Data kas berhasil diperbarui',
-            'data' => $data->load(['account', 'creator', 'verifier']),
-        ], 200);
+{
+    $data = CashFlow::find($id);
+    if (!$data) {
+        return response()->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
     }
 
+    $validated = $request->validate([
+        'status' => 'in:pending,verified',
+        'description' => 'nullable|string',
+    ]);
+
+    // Simpan status baru
+    $newStatus = $request->status ?? $data->status;
+    $data->update([
+        'status' => $newStatus,
+        'description' => $request->description ?? $data->description,
+        'verified_by' => auth()->id(), // lebih aman daripada hardcode 3
+        'verified_at' => $newStatus === 'setujui' ? now() : null,
+    ]);
+
+    // 🔥 Auto-generate jurnal jika status jadi 'verified'
+    if ($newStatus === 'verified' && !$data->journal) {
+        Journal::create([
+            'cash_flow_id' => $data->id,
+            'transaction_ref' => $data->reference,
+            'account_id' => $data->account_id,
+            'debit' => $data->type === 'out' ? $data->amount : '0.00',
+            'credit' => $data->type === 'in' ? $data->amount : '0.00',
+            'description' => $data->description,
+            'created_at' => $data->created_at,
+        ]);
+    }
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Data kas berhasil diperbarui',
+        'data' => $data->load(['account', 'creator', 'verifier']),
+    ]);
+}
     /**
      * Delete a cash flow record.
      */
